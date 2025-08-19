@@ -53,6 +53,8 @@ class GameUI:
     X_OFFSET: int
     Y_OFFSET: int
 
+    TICK_INTERVAL: int
+
     def __init__(self):
         pygame.init()
         self.WINDOW_SCALE = 0.75
@@ -77,6 +79,8 @@ class GameUI:
         self.X_OFFSET = (self.WINDOW_WIDTH - self.GRID_WIDTH) // 2
         self.Y_OFFSET = (self.WINDOW_HEIGHT - self.GRID_HEIGHT) // 2
 
+        self.TICK_INTERVAL = 500  # e.g., 500ms = half a second
+
     def draw_grid(self) -> None:
         for row in range(self.controller.game_board.num_rows):
             for col in range(self.controller.game_board.num_cols):
@@ -89,6 +93,15 @@ class GameUI:
                 pygame.draw.rect(self.surface, self.GRID_BORDER_COLOR, square, 1)
         
     def run(self) -> None:
+        """
+        Starts the actual game
+        - Determines the time interval for each tick
+        - Executes each tick
+        - Listens for user controls
+        - Executes user controls
+        """
+        # Set up a userevent to occur every tick_interval ms
+        pygame.time.set_timer(pygame.USEREVENT, self.TICK_INTERVAL)
         running = True
         while running:
             self.surface.fill(self.BACKGROUND_COLOR)
