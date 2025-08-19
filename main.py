@@ -1,6 +1,7 @@
 from typing import Dict, List, Literal
 import random 
 import copy
+import pygame 
 
 # --------------------------------------------------------------------------------
 # Type Aliases
@@ -9,6 +10,35 @@ import copy
 #   1 → occupied cell (block present)
 #   0 → empty cell
 Matrix = List[List[int]]
+
+
+# --------------------------------------------------------------------------------
+# Colors for UI
+# --------------------------------------------------------------------------------
+COLORS = {
+    "BLACK": (0, 0, 0),
+    "WHITE": (255, 255, 255),
+    "YELLOW": (255, 255, 0),
+    "BLUE": (0, 0, 255),
+    "RED": (255, 0, 0),
+    "GREEN": (0, 255, 0),
+    "PINK": (255, 192, 203),
+    "PURPLE": (128, 0, 128),
+    "ORANGE": (255, 165, 0)
+}
+
+# --------------------------------------------------------------------------------
+# Tetris shape key mapping to color
+# --------------------------------------------------------------------------------
+COLORS_MAPPING = {
+    1: COLORS["BLUE"],
+    2: COLORS["YELLOW"],
+    3: COLORS["PURPLE"],
+    4: COLORS["PINK"],
+    5: COLORS["ORANGE"],
+    6: COLORS["RED"],
+    7: COLORS["GREEN"]
+}
 
 # --------------------------------------------------------------------------------
 # Shape Definitions for Tetris Pieces
@@ -254,12 +284,7 @@ class Game:
     def __init__(self):
         self.board: Board = Board()
         self.active_shape: Shape | None = None
-        # self.spawn_new_shape()
-        self.test_spawn_new_shape("O")
-
-    def test_spawn_new_shape(self, shape: str) -> None:
-        self.active_shape = Shape(SHAPES[shape])
-        self.board.place_shape(self.active_shape)
+        self.spawn_new_shape()
 
     def spawn_new_shape(self) -> None:
         """
@@ -350,10 +375,63 @@ class Game:
             self.board.place_shape(self.active_shape)
             self.active_shape = Shape(random.choice(list(SHAPES.values())))
 
+class GameUI:
+    def __init__(self):
+        pygame.init()
+        self.WINDOW_SCALE = 0.75
+        self.WINDOW_HEIGHT = int(pygame.display.Info().current_h * self.WINDOW_SCALE)
+        self.WINDOW_WIDTH = int(pygame.display.Info().current_w * self.WINDOW_SCALE)
+        self.surface = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
+
+        self.game = Game()
+
+        self.BACKGROUND_COLOR = COLORS["WHITE"]
+        self.GRID_CELL_COLOR = COLORS["WHITE"]
+        self.GRID_BORDER_COLOR = COLORS["BLACK"]
+
+        self.GRID_SCALE = 0.9
+        self.CELL_SIZE = min((self.WINDOW_WIDTH * self.GRID_SCALE) // self.game.board.num_cols, (self.WINDOW_HEIGHT * self.GRID_SCALE) // self.game.board.num_rows)
+        self.CELL_WIDTH = self.CELL_HEIGHT = self.CELL_SIZE
+        self.GRID_WIDTH = self.game.board.num_cols * self.CELL_WIDTH
+        self.GRID_HEIGHT = self.game.board.num_rows * self.CELL_HEIGHT
+        self.X_OFFSET = (self.WINDOW_WIDTH - self.GRID_WIDTH) // 2
+        self.Y_OFFSET = (self.WINDOW_HEIGHT - self.GRID_HEIGHT) // 2
+
+    def draw_grid(self):
+        for row in range(self.game.board.num_rows):
+            for col in range(self.game.board.num_cols):
+                x = col * self.CELL_WIDTH + self.X_OFFSET
+                y = row * self.CELL_HEIGHT + self.Y_OFFSET
+                square = pygame.Rect(x, y, self.CELL_WIDTH, self.CELL_HEIGHT)
+                cell_color = COLORS_MAPPING[self.game.board.grid[row][col]] if self.game.board.grid[row][col] else self.GRID_CELL_COLOR
+                pygame.draw.rect(self.surface, cell_color, square)
+                pygame.draw.rect(self.surface, self.GRID_BORDER_COLOR, square, 1)
+        
+    def run(self):
+        running = True
+        while running:
+            self.surface.fill(self.BACKGROUND_COLOR)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT: self.game.move("left")
+                    elif event.key == pygame.K_RIGHT: self.game.move("right")
+                    elif event.key == pygame.K_DOWN: self.game.move("down")
+                    elif event.key == pygame.K_UP: self.game.rotate()
+                elif event.type == pygame.USEREVENT:
+                    self.game.tick()
+
+            self.draw_grid()
+            pygame.display.update()
 # --------------------------------------------------------------------------------
 # Main: simple demo loop
 # --------------------------------------------------------------------------------
 if __name__ == "__main__":
+    app = GameUI()
+    app.run()
+
+    quit()
     game = Game()
 
     print("\nFirst Shape: \n")
