@@ -3,6 +3,7 @@ import copy
 from typing import Dict, List, Literal, Optional
 from src.gameboard import GameBoard
 from src.shape import Shape
+from collections import deque
 
 # Type Aliases
 Matrix = List[List[int]]
@@ -59,9 +60,10 @@ class Controller:
     Represents the controller for managing the state of the Tetris game. 
     It creates a new game board (instance of the GameBoard class), and creates
     new shapes (instances of the Shape class) as the game goes on. It manages 
-    the moving and rotating of shapes on the board, and how the game changes 
+    the moving and rotating of shapes on the board, how the game changes 
     each 'tick' (i.e. when rows are erased, when the piece moves automatically, 
-    and when a new piece is created)
+    and when a new piece is created), and the shape queue. It also keeps track 
+    of the points in the game, and level / tick speed. 
 
     Attributes:
     - game_board (GameBoard): 20x10 grid representing the tetris board
@@ -74,22 +76,38 @@ class Controller:
         """
         self.game_board: GameBoard = GameBoard()
         self.active_shape: Optional[Shape] = None
+        self.points: int = 0
+        self.level: int = 1
+
+        self.shape_queue: deque[Shape] = deque()
+        for _ in range(3):
+            self.shape_queue.append(self.generate_new_shape())
+
         self.spawn_new_shape()
 
+
+    def generate_new_shape(self) -> Shape:
+        """
+        Returns a single random shape
+        """
+        shape_matrix = random.choice(list(SHAPES.values()))
+        return Shape(shape_matrix)
+    
     def spawn_new_shape(self) -> bool:
         """
-        Creates a new random shape and positions it at the top-center of the board.
+        Sets the active shape to the next shape in the queue, add a new shape to the queue,
+        and place the new active shape on the board
 
         Returns:
         - bool: True if the shape can be placed, False if game over (collision on spawn).
         """
-        shape_matrix: Matrix = random.choice(list(SHAPES.values()))
-        self.active_shape = Shape(shape_matrix)
+        self.active_shape = copy.deepcopy(self.shape_queue.popleft())
+        self.shape_queue.append(self.generate_new_shape())
         if self.game_board.can_place(self.active_shape):
             self.game_board.place_shape(self.active_shape)
             return True
-        else:   
-            return False 
+        else:
+            return False
             
     def rotate(self) -> bool:
         """
@@ -145,6 +163,17 @@ class Controller:
         self.active_shape.col_position -= changein_col
         self.game_board.place_shape(self.active_shape)
         return False
+    
+    def update_points(self, num_rows_cleared: int) -> None:
+        """
+        Given the number of rows cleared, the current level, 
+        and the current score, update the score
+
+        Args:
+        - int: number of rows that were cleared
+        """
+        points_table = {1: 40, 2: 100, 3: 300, 4: 1200}
+        self.points += points_table.get(num_rows_cleared, 0) * self.level
             
             
     def tick(self) -> bool:
@@ -166,7 +195,8 @@ class Controller:
         # 2. Spawn a new shape
         # 3. Check to see if the game is over 
         if not moved:
-            self.game_board.clear_rows()
+            num_cleared = self.game_board.clear_rows()
+            self.update_points(num_cleared)
             spawned = self.spawn_new_shape()
             if not spawned:
                 return False
