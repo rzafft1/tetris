@@ -85,44 +85,6 @@ class Controller:
         shape_matrix: Matrix = random.choice(list(SHAPES.values()))
         self.active_shape = Shape(shape_matrix)
         self.game_board.place_shape(self.active_shape)
-
-    def move(self, direction: Literal['left', 'right', 'down']) -> bool:
-        """
-        Attempts to move the active shape 1 unit in the desired direction
-
-        1. Get the change in direction 
-        2. Calculate the new coordinates of the shape
-        3. Remove the shape from the board
-        4. If the shape can be placed with the new coordinates, place it, return true
-        5. Otherwise, place the original shape back on the board
-
-        Args:
-        - direction (Literal['left', 'right', 'down'])
-
-        Returns:
-        - bool: True if the shape was moved, false if blocked
-        """
-        if not self.active_shape:
-            return False
-        
-        changein_row: int = 0
-        changein_col: int = 0
-        if direction == "left": changein_col = -1
-        elif direction == "right": changein_col = 1
-        elif direction == "down": changein_row = 1
-        else: return False
-        
-        new_row: int = self.active_shape.row_position + changein_row
-        new_col: int = self.active_shape.col_position + changein_col
-        self.game_board.remove_shape(self.active_shape)
-        if self.game_board.can_place(self.active_shape, new_row, new_col):
-            self.active_shape.row_position = new_row
-            self.active_shape.col_position = new_col
-            self.game_board.place_shape(self.active_shape)
-            return True
-        else:
-            self.game_board.place_shape(self.active_shape)
-            return False
         
     def rotate(self) -> bool:
         """
@@ -151,7 +113,43 @@ class Controller:
             self.active_shape.matrix = original_matrix
             self.game_board.place_shape(self.active_shape)
             return False
-    
+
+    def move(self, direction: Literal['left', 'right', 'down']) -> bool:
+        """
+        Attempts to move the active shape 1 unit in the desired direction
+
+        1. Get the change in direction 
+        2. Calculate the new coordinates of the shape
+        3. Remove the shape from the board
+        4. If the shape can be placed with the new coordinates, place it, return true
+        5. Otherwise, place the original shape back on the board
+
+        Args:
+        - direction (Literal['left', 'right', 'down'])
+
+        Returns:
+        - bool: True if the shape was moved, false if blocked
+        """
+        if not self.active_shape:
+            return False
+        
+        changein_row: int = 0
+        changein_col: int = 0
+        if direction == "left": changein_col = -1
+        elif direction == "right": changein_col = 1
+        elif direction == "down": changein_row = 1
+        else: return False
+            
+        self.game_board.remove_shape(self.active_shape)
+        if self.game_board.can_place(self.active_shape, self.active_shape.row_position + changein_row, self.active_shape.col_position + changein_col):
+            self.active_shape.row_position += changein_row
+            self.active_shape.col_position += changein_col
+            self.game_board.place_shape(self.active_shape)
+            return True
+        else:
+            self.game_board.place_shape(self.active_shape)
+            return False
+            
     def tick(self) -> None:
         """
         Advances the game state by one tick:
@@ -161,13 +159,9 @@ class Controller:
         if self.active_shape is None:
             return
 
-        if self.game_board.can_place(
-            self.active_shape,
-            self.active_shape.row_position + 1,
-            self.active_shape.col_position
-        ):
-            self.active_shape.row_position += 1
+        # If the game piece cannot be moved downward, leave it where it is and spawn a new shape
+        # Otherwise, move the piece down one unit
+        if not self.game_board.can_place(self.active_shape,self.active_shape.row_position + 1,self.active_shape.col_position):
+            self.spawn_new_shape()
         else:
-            self.game_board.place_shape(self.active_shape)
-            new_shape_matrix: Matrix = random.choice(list(SHAPES.values()))
-            self.active_shape = Shape(new_shape_matrix)
+            self.move("down")
