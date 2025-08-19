@@ -4,8 +4,12 @@ from src.controller import Controller
 
 # Type Aliases
 Matrix = List[List[int]]
+Color = Tuple[int, int, int]
 
-# Colors for UI
+# ===============================
+# Constants and Mappings
+# ===============================
+
 COLORS: Dict[str, Tuple[int, int, int]] = {
     "BLACK": (0, 0, 0),
     "WHITE": (255, 255, 255),
@@ -18,7 +22,6 @@ COLORS: Dict[str, Tuple[int, int, int]] = {
     "ORANGE": (255, 165, 0)
 }
 
-# Tetris shape key mapping to color
 COLORS_MAPPING: Dict[int, Tuple[int, int, int]] = {
     1: COLORS["BLUE"],
     2: COLORS["YELLOW"],
@@ -29,96 +32,148 @@ COLORS_MAPPING: Dict[int, Tuple[int, int, int]] = {
     7: COLORS["GREEN"]
 }
 
-
 class GameUI:
 
-    # Local Variables
-    WINDOW_SCALE: float
-    WINDOW_HEIGHT: int
-    WINDOW_WIDTH: int
-    surface: pygame.Surface
+    """
+    Represents the actual user interface (i.e. game window, game board, etc.).
+    It manages the design of the game window, draws the game board, handles user
+    input, and executes game ticks
+    """
 
-    controller: Controller
+    def __init__(self, initial_tick_interval: int = 50, scale: float = 0.75): 
+        """
+        Initializes the game UI and Pygame display.
 
-    BACKGROUND_COLOR: Tuple[int, int, int]
-    GRID_CELL_COLOR: Tuple[int, int, int]
-    GRID_BORDER_COLOR: Tuple[int, int, int]
+        Args:
+        - tick_interval (int): Milliseconds per game tick (this is like the difficulty of the game)
+        - scale (float): Window scaling factor based on current display size
+        """
 
-    GRID_SCALE: float
-    CELL_SIZE: int
-    CELL_WIDTH: int
-    CELL_HEIGHT: int
-    GRID_WIDTH: int
-    GRID_HEIGHT: int
-    X_OFFSET: int
-    Y_OFFSET: int
-
-    TICK_INTERVAL: int
-
-    def __init__(self):
         pygame.init()
-        self.WINDOW_SCALE = 0.75
-        self.WINDOW_HEIGHT = int(pygame.display.Info().current_h * self.WINDOW_SCALE)
-        self.WINDOW_WIDTH = int(pygame.display.Info().current_w * self.WINDOW_SCALE)
-        self.surface = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
 
-        self.controller = Controller()
+        # ===============================
+        # Display and Surface Setup
+        # ===============================
+        self.display_info: pygame.display.Info = pygame.display.Info()
+        self.window_width: int = int(self.display_info.current_w * scale)
+        self.window_height: int = int(self.display_info.current_h * scale)
+        self.surface: pygame.Surface = pygame.display.set_mode((self.window_width, self.window_height))
 
-        self.BACKGROUND_COLOR = COLORS["WHITE"]
-        self.GRID_CELL_COLOR = COLORS["WHITE"]
-        self.GRID_BORDER_COLOR = COLORS["BLACK"]
+        # ===============================
+        # Game Controller
+        # ===============================
+        self.controller: Controller = Controller()
 
-        self.GRID_SCALE = 0.9
-        self.CELL_SIZE = min(
-            (self.WINDOW_WIDTH * self.GRID_SCALE) // self.controller.game_board.num_cols,
-            (self.WINDOW_HEIGHT * self.GRID_SCALE) // self.controller.game_board.num_rows
+        # ===============================
+        # Grid and UI Colors
+        # ===============================
+        self.background_color: Color = COLORS["WHITE"]
+        self.grid_cell_color: Color = COLORS["WHITE"]
+        self.grid_border_color: Color = COLORS["BLACK"]
+
+        # ===============================
+        # Grid Scaling and Positioning
+        # ===============================
+        self.grid_scale: float = 0.9
+        self.cell_size: int = min(
+            (self.window_width * self.grid_scale) // self.controller.game_board.num_cols,
+            (self.window_height * self.grid_scale) // self.controller.game_board.num_rows
         )
-        self.CELL_WIDTH = self.CELL_HEIGHT = self.CELL_SIZE
-        self.GRID_WIDTH = self.controller.game_board.num_cols * self.CELL_WIDTH
-        self.GRID_HEIGHT = self.controller.game_board.num_rows * self.CELL_HEIGHT
-        self.X_OFFSET = (self.WINDOW_WIDTH - self.GRID_WIDTH) // 2
-        self.Y_OFFSET = (self.WINDOW_HEIGHT - self.GRID_HEIGHT) // 2
+        self.cell_width: int = self.cell_size
+        self.cell_height: int = self.cell_size
+        self.grid_width: int = self.controller.game_board.num_cols * self.cell_width
+        self.grid_height: int = self.controller.game_board.num_rows * self.cell_height
+        self.x_offset: int = (self.window_width - self.grid_width) // 2
+        self.y_offset: int = (self.window_height - self.grid_height) // 2
 
-        self.TICK_INTERVAL = 500  # e.g., 500ms = half a second
 
+        # ===============================
+        # Initial Game Difficulty
+        # ===============================
+        self.tick_interval: int = initial_tick_interval
+
+
+    # ===============================
+    # Rendering Methods
+    # ===============================
     def draw_grid(self) -> None:
+        """
+        Draws the Tetris board grid and the shapes currently placed.
+        """
         for row in range(self.controller.game_board.num_rows):
             for col in range(self.controller.game_board.num_cols):
-                x = col * self.CELL_WIDTH + self.X_OFFSET
-                y = row * self.CELL_HEIGHT + self.Y_OFFSET
-                square = pygame.Rect(x, y, self.CELL_WIDTH, self.CELL_HEIGHT)
+                x = col * self.cell_width + self.x_offset
+                y = row * self.cell_height + self.y_offset
+                square = pygame.Rect(x, y, self.cell_width, self.cell_height)
                 cell_color = COLORS_MAPPING[self.controller.game_board.grid[row][col]] \
-                    if self.controller.game_board.grid[row][col] else self.GRID_CELL_COLOR
+                    if self.controller.game_board.grid[row][col] else self.grid_cell_color
                 pygame.draw.rect(self.surface, cell_color, square)
-                pygame.draw.rect(self.surface, self.GRID_BORDER_COLOR, square, 1)
-        
+                pygame.draw.rect(self.surface, self.grid_border_color, square, 1)
+
+    # ===============================
+    # Event Handling Methods
+    # ===============================
+    def handle_key_event(self, key: int) -> None:
+        """
+        Handles keyboard input for moving and rotating the active shape.
+        """
+        if key == pygame.K_LEFT:
+            self.controller.move("left")
+        elif key == pygame.K_RIGHT:
+            self.controller.move("right")
+        elif key == pygame.K_DOWN:
+            self.controller.move("down")
+        elif key == pygame.K_UP:
+            self.controller.rotate()
+
+    # ===============================
+    # Game Loop
+    # ===============================
     def run(self) -> None:
         """
-        Starts the actual game
-        - Determines the time interval for each tick
-        - Executes each tick
-        - Listens for user controls
-        - Executes user controls
+        Starts the game loop.
+        - Processes user input
+        - Advances the game via ticks
+        - Draws the updated game state
         """
-        # Set up a userevent to occur every tick_interval ms
-        pygame.time.set_timer(pygame.USEREVENT, self.TICK_INTERVAL)
+        TICK_EVENT = pygame.USEREVENT + 1
+        pygame.time.set_timer(TICK_EVENT, self.tick_interval)
+
         running = True
+        clock = pygame.time.Clock()
+        move_delay = 50  # milliseconds between moves when holding a key
+        last_move_time: Dict[int, int] = {pygame.K_LEFT: 0, pygame.K_RIGHT: 0, pygame.K_DOWN: 0}
+
         while running:
-            self.surface.fill(self.BACKGROUND_COLOR)
+            self.surface.fill(self.background_color)
+            current_time = pygame.time.get_ticks()
+
+            # ===============================
+            # Event Handling
+            # ===============================
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_LEFT:
-                        self.controller.move("left")
-                    elif event.key == pygame.K_RIGHT:
-                        self.controller.move("right")
-                    elif event.key == pygame.K_DOWN:
-                        self.controller.move("down")
-                    elif event.key == pygame.K_UP:
+                    if event.key == pygame.K_UP:
                         self.controller.rotate()
-                elif event.type == pygame.USEREVENT:
-                    self.controller.tick()
+                elif event.type == TICK_EVENT:
+                    running = self.controller.tick()
 
+            # ===============================
+            # Handle held-down keys
+            # ===============================
+            keys = pygame.key.get_pressed()
+            for key, direction in [(pygame.K_LEFT, "left"), 
+                                (pygame.K_RIGHT, "right"), 
+                                (pygame.K_DOWN, "down")]:
+                if keys[key] and current_time - last_move_time[key] > move_delay:
+                    self.controller.move(direction)
+                    last_move_time[key] = current_time
+
+            # ===============================
+            # Render
+            # ===============================
             self.draw_grid()
             pygame.display.update()
+            clock.tick(60)

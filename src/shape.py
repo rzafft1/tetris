@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import List
 
 # Type Aliases
 Matrix = List[List[int]]
@@ -6,66 +6,50 @@ Matrix = List[List[int]]
 class Shape:
 
     """
-    Represents a Tetris piece, including:
-    - The shape matrix (4x4)
-    - The top left position of the shape matrix on the board
-    - The current rotation state of the matrix
-    - the color of the shape
+    Represents a single Tetris piece (shape). It stores the shape matrix and its position
+    on the board and manages the execution of a shape rotation within its matrix.
+
+    Attributes:
+    - matrix (Matrix): 4x4 or 3x3 matrix representing the shape; 0 = empty, non-zero = block.
+    - row_position (int): Row index of the top-left of the shape on the board.
+    - col_position (int): Column index of the top-left of the shape on the board.
+    - color_key (int): Non-zero value representing the shape's color.
     """
 
-    # Local Variables
-    matrix: Matrix
-    rotation_state: int
-    row_position: int
-    col_position: int
-    key: Optional[int] # the key is mapped to the color
-
     def __init__(self, matrix: Matrix) -> None:
-        self.matrix = matrix
-        self.rotation_state = 0
-        self.row_position = 0
-        self.col_position = 0
+        self.matrix: Matrix = matrix
+        self.row_position: int = 0
+        self.col_position: int = 0
+        self.color_key: int = self.get_color_key()
 
-        # Determine the key of the shape (first non-zero value)
-        self.key: Optional[int] = None
-        for i, row in enumerate(self.matrix):
-            for j, val in enumerate(row):
+    def get_color_key(self) -> int:
+        """
+        Returns the first non-zero value in the shape's matrix, used as a color key.
+        
+        Returns
+        - int: The non-zero matrix value representing the shape's color (0 if empty)
+        """
+        for row in self.matrix:
+            for val in row:
                 if val != 0:
-                    self.key = val
-                    break
-            if self.key is not None:
-                break
+                    return val
+        return 0
 
-
-    def show(self) -> None:
+    def rotate(self) -> None:
         """
-        Prints the matrix (4 x 4) to the terminal
-        - 1's are converted to '*'s, and represent cells that make up the shape
-        - 0's are converted to empty strings, and represent padding
-        """
-        for i in range(len(self.matrix)):
-            for j in range(len(self.matrix)):
-                if self.matrix[i][j] == 0:
-                    print("0", end=' ')
-                else:
-                    print("*", end=' ')
-            print()
-
-    def rotate(self) -> Matrix:
-        """
-        Rotates the shape 90° clockwise within its matrix.
-        Steps:
-        1. Transpose the matrix.
-        2. Reverse each row.
-
-        Returns:
-            Matrix: The rotated shape.
+        Rotates the shape 90° clockwise in place by:
+        1. Transposing the matrix.
+        2. Reversing each row.
         """
         for i in range(len(self.matrix)): # Transpose the matrix
-            for j in range(i, len(self.matrix)):
+            for j in range(i, len(self.matrix[i])):
                 self.matrix[i][j], self.matrix[j][i] = self.matrix[j][i], self.matrix[i][j]
-        for i in range(len(self.matrix)): # Reverse each row
-            self.matrix[i].reverse()
-        self.rotation_state = (self.rotation_state + 1) % 4
-        return self.matrix
+        for row in self.matrix: # Reverse each row
+            row.reverse()
     
+    def show(self) -> None:
+        """
+        Prints the shape's matrix to the terminal, with '*' for blocks and '0' for empty cells.
+        """
+        for row in self.matrix:
+            print(" ".join("*" if val != 0 else "0" for val in row))
