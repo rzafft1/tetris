@@ -19,7 +19,7 @@ class Shape:
     def __init__(self, matrix: Matrix) -> None:
         self.matrix: Matrix = matrix
         self.row_position: int = 0
-        self.col_position: int = 0
+        self.col_position: int = (len(self.matrix[0]) // 2) + 2
         self.color_key: int = self.get_color_key()
 
     def get_color_key(self) -> int:
