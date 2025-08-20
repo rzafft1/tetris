@@ -2,6 +2,7 @@ from typing import Dict, List, Tuple
 import pygame 
 from src.controller import Controller
 from src.shape import Shape
+import copy 
 
 # Type Aliases
 Matrix = List[List[int]]
@@ -41,7 +42,7 @@ class GameUI:
     input, and executes game ticks
     """
 
-    def __init__(self, initial_tick_interval: int = 500, scale: float = 0.75): 
+    def __init__(self, initial_tick_interval: int = 500, scale: float = 0.8): 
         """
         Initializes the game UI and Pygame display.
 
@@ -90,8 +91,8 @@ class GameUI:
         self.cell_height: int = self.cell_size
         self.grid_width: int = self.controller.game_board.num_cols * self.cell_width
         self.grid_height: int = self.controller.game_board.num_rows * self.cell_height
-        self.x_offset: int = (self.window_width - self.grid_width) // 2
-        self.y_offset: int = (self.window_height - self.grid_height) // 2
+        self.x_offset: int = (self.window_width - self.grid_width) // 2 # top left corner x
+        self.y_offset: int = (self.window_height - self.grid_height) // 2 # top left corner y
 
 
         # ===============================
@@ -117,6 +118,14 @@ class GameUI:
                 pygame.draw.rect(self.surface, cell_color, square)
                 pygame.draw.rect(self.surface, self.grid_border_color, square, 1)
 
+        outer_rect = pygame.Rect(
+            self.x_offset - 1,  # move 1 pixel left
+            self.y_offset - 1,  # move 1 pixel up
+            self.controller.game_board.num_cols * self.cell_width + 2,  # extend width by 2 pixels
+            self.controller.game_board.num_rows * self.cell_height + 2   # extend height by 2 pixels
+        )
+        pygame.draw.rect(self.surface, self.grid_border_color, outer_rect, 2)
+
     def draw_score(self) -> None:
         """
         Draws the current score above the grid, centered horizontally
@@ -136,15 +145,13 @@ class GameUI:
         - int: top left x position in the window
         - int: top left y position in the window
         """
-        for r, row in enumerate(shape.matrix):
+        # first, strip any rows from the matrix that are all zero
+        shape_matrix = copy.deepcopy(shape.matrix)
+        shape_matrix = [row for row in shape_matrix if any(cell != 0 for cell in row)]
+        for r, row in enumerate(shape_matrix):
             for c, val in enumerate(row):
                 if val != 0:
-                    rect = pygame.Rect(
-                        top_left_x + c * cell_size,
-                        top_left_y + r * cell_size,
-                        cell_size,
-                        cell_size
-                    )
+                    rect = pygame.Rect(top_left_x + c * cell_size,top_left_y + r * cell_size,cell_size,cell_size)
                     pygame.draw.rect(self.surface, COLORS_MAPPING[val], rect)
                     pygame.draw.rect(self.surface, COLORS["BLACK"], rect, 1)
 
@@ -153,45 +160,40 @@ class GameUI:
         Draws the next three shapes to the right of the Tetris board,
         centered horizontally in the queue area, with a border.
         """
-        cell_size = self.cell_width
-        num_shapes = len(self.controller.shape_queue)
-        padding_top = 15
-        padding_bottom = 15
+        
+        # Queue dimensions
+        queue_width = 5 * self.cell_size
+        queue_height = 10 * self.cell_size
+        padding_left = 80    
+        padding_bottom = 0  
 
-        # Queue area width (max shape width is 4 cells)
-        queue_width = 5 * cell_size
-        queue_height = int(self.grid_height * 0.8)  # 80% of the board height
+        # Queue position
+        queue_x_left = self.x_offset + self.grid_width + padding_left                                  
+        queue_y_top = self.y_offset + self.grid_height - queue_height - padding_bottom   
+        queue_y_bottom = self.y_offset + self.grid_height - padding_bottom        
 
-        # Align bottom of queue with bottom of the grid
-        queue_x = self.x_offset + self.grid_width + 25
-        queue_y = self.y_offset + self.grid_height - queue_height
+        # Draw queue border 
+        border_rect = pygame.Rect(queue_x_left, queue_y_top, queue_width, queue_height)
+        pygame.draw.rect(self.surface, COLORS["BLACK"], border_rect, 2)
 
-        # Draw border rectangle
-        border_rect = pygame.Rect(queue_x - 5, queue_y - 5, queue_width + 10, queue_height + 10)
-        pygame.draw.rect(self.surface, COLORS["BLACK"], border_rect, 1)
+        # calculate the available space for each piece inside the queue
+        space_per_piece = (queue_y_bottom - queue_y_top) / len(self.controller.shape_queue)
 
-        # Draw label above the queue
-        label_surface = self.mainfont.render("Queue", True, COLORS["BLACK"])
-        label_rect = label_surface.get_rect()
-        label_rect.centerx = queue_x + queue_width // 2
-        label_rect.bottom = queue_y - 5
-        self.surface.blit(label_surface, label_rect)
+        # draw each shape inside the queue
+        for i, shape in enumerate(reversed(self.controller.shape_queue)):
 
-        # Compute vertical spacing inside the queue
-        available_height = queue_height - padding_top - padding_bottom
-        spacing = (available_height - num_shapes * 4 * cell_size) // (num_shapes - 1)
+            shape_num_rows = len(shape.matrix)   
+            shape_num_nonzero_rows = sum(1 for row in shape.matrix if any(val != 0 for val in row))  
 
-        # Draw each shape
-        for i, shape in enumerate(self.controller.shape_queue):
-            shape_height = len(shape.matrix)
-            shape_width = len(shape.matrix[0])
+            shapearea_x_left = queue_x_left + (queue_width - shape_num_rows * self.cell_size) // 2 
+            shapearea_y_top = queue_y_bottom-(space_per_piece*(i+1)) 
+            shapearea_y_bottom = queue_y_bottom-(space_per_piece*(i))  
+            shapearea_y_middle = shapearea_y_bottom - ((shapearea_y_bottom - shapearea_y_top)/2)
 
-            # Horizontal centering
-            shape_x = queue_x + (queue_width - shape_width * cell_size) // 2
-            # Vertical positioning with top padding + spacing
-            shape_y = queue_y + padding_top + i * (4 * cell_size + spacing)
+            if shape_num_nonzero_rows == 1: shape_y_top = shapearea_y_middle - self.cell_size/2  
+            else: shape_y_top = shapearea_y_middle - self.cell_size   
 
-            self.draw_shape(shape, shape_x, shape_y, cell_size)
+            self.draw_shape(shape, shapearea_x_left, shape_y_top, self.cell_size)
 
     # ===============================
     # Event Handling Methods
