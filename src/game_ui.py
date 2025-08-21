@@ -42,7 +42,7 @@ class GameUI:
     input, and executes game ticks
     """
 
-    def __init__(self, initial_tick_interval: int = 500, scale: float = 0.8): 
+    def __init__(self, window_scale: float = 0.9, difficulty = 1): 
         """
         Initializes the game UI and Pygame display.
 
@@ -53,18 +53,46 @@ class GameUI:
 
         pygame.init()
 
+
+       # ===============================
+        # Initial Game Difficulty
         # ===============================
-        # Display and Surface Setup
-        # ===============================
-        self.display_info: pygame.display.Info = pygame.display.Info()
-        self.window_width: int = int(self.display_info.current_w * scale)
-        self.window_height: int = int(self.display_info.current_h * scale)
-        self.surface: pygame.Surface = pygame.display.set_mode((self.window_width, self.window_height))
+        self.starting_level = difficulty
+        self.initial_level_speed = 500
 
         # ===============================
         # Game Controller
         # ===============================
-        self.controller: Controller = Controller()
+        self.controller: Controller = Controller(initial_level=self.starting_level)
+        self.tick_interval = self.initial_level_speed
+        self.update_tick_interval()
+
+        # ===============================
+        # Custom Padding
+        # ===============================
+        self.grid_padding_left = 10
+        self.queue_padding_left = 10
+        self.queue_padding_bottom = 0
+
+        # ===============================
+        # Display and Surface Setup
+        # ===============================
+        self.display_info = pygame.display.Info()
+        screen_w = self.display_info.current_w
+        screen_h = self.display_info.current_h
+
+        # Height = as tall as possible (scaled)
+        self.window_height = int(screen_h * window_scale)
+
+        # Width = exactly half of height
+        self.window_width = int(self.window_height * 0.7)
+
+        # Ensure it fits in screen width
+        if self.window_width > screen_w:
+            self.window_width = screen_w
+            self.window_height = self.window_width * 2
+
+        self.surface = pygame.display.set_mode((self.window_width, self.window_height))
 
         # ===============================
         # Grid and UI Colors
@@ -91,15 +119,23 @@ class GameUI:
         self.cell_height: int = self.cell_size
         self.grid_width: int = self.controller.game_board.num_cols * self.cell_width
         self.grid_height: int = self.controller.game_board.num_rows * self.cell_height
-        self.x_offset: int = (self.window_width - self.grid_width) // 2 # top left corner x
-        self.y_offset: int = (self.window_height - self.grid_height) // 2 # top left corner y
+        self.grid_left_x: int = self.grid_padding_left
+        self.grid_top_y: int = (self.window_height - self.grid_height) // 2  
 
+        self.previous_level = self.controller.level
 
-        # ===============================
-        # Initial Game Difficulty
-        # ===============================
-        self.tick_interval: int = initial_tick_interval
+    # ===============================
+    # Changing Level Methods
+    # ===============================
 
+    def update_tick_interval(self) -> None:
+        """
+        Update tick interval based on controller's level.
+        - Each level will increase the speed of the tick interval by 10%, with max speed of 50ms
+        """
+        self.tick_interval = max(50, int(self.initial_level_speed * (0.9 ** (self.controller.level - 1))))
+        TICK_EVENT = pygame.USEREVENT + 1
+        pygame.time.set_timer(TICK_EVENT, self.tick_interval)
 
     # ===============================
     # Rendering Methods
@@ -108,10 +144,15 @@ class GameUI:
         """
         Draws the Tetris board grid and the shapes currently placed.
         """
+
+        pygame.draw.circle(self.surface, COLORS["RED"], (self.grid_left_x, self.grid_top_y), 10)
+
         for row in range(self.controller.game_board.num_rows):
             for col in range(self.controller.game_board.num_cols):
-                x = col * self.cell_width + self.x_offset
-                y = row * self.cell_height + self.y_offset
+
+                x = col * self.cell_width + self.grid_left_x
+                y = row * self.cell_height + self.grid_top_y
+                square = pygame.Rect(x, y, self.cell_width, self.cell_height)
                 square = pygame.Rect(x, y, self.cell_width, self.cell_height)
                 cell_color = COLORS_MAPPING[self.controller.game_board.grid[row][col]] \
                     if self.controller.game_board.grid[row][col] else self.grid_cell_color
@@ -119,8 +160,8 @@ class GameUI:
                 pygame.draw.rect(self.surface, self.grid_border_color, square, 1)
 
         outer_rect = pygame.Rect(
-            self.x_offset - 1,  # move 1 pixel left
-            self.y_offset - 1,  # move 1 pixel up
+            self.grid_left_x - 1,  # move 1 pixel left
+            self.grid_top_y - 1,  # move 1 pixel up
             self.controller.game_board.num_cols * self.cell_width + 2,  # extend width by 2 pixels
             self.controller.game_board.num_rows * self.cell_height + 2   # extend height by 2 pixels
         )
@@ -128,13 +169,51 @@ class GameUI:
 
     def draw_score(self) -> None:
         """
-        Draws the current score above the grid, centered horizontally
+        Draws the score, level, and lines cleared info to the right of the board.
         """
-        score_text = f"Points: {self.controller.points}"
-        text_surface = self.mainfont.render(score_text, True, COLORS["BLACK"])
-        text_rect = text_surface.get_rect()
-        text_rect.centerx = self.window_width // 2
-        self.surface.blit(text_surface, text_rect)
+        # First line: POINTS label
+        label_surface = self.mainfont.render("POINTS", True, COLORS["BLACK"])
+        label_rect = label_surface.get_rect()
+        label_rect.left = self.grid_left_x + self.grid_width + self.queue_padding_left
+        label_rect.top = self.grid_top_y
+
+        # Second line: points value
+        value_surface = self.mainfont.render(str(self.controller.points), True, COLORS["BLACK"])
+        value_rect = value_surface.get_rect()
+        value_rect.left = label_rect.left
+        value_rect.top = label_rect.bottom + 5  # 5px spacing under POINTS label
+
+        # Third line: LEVEL label
+        level_label_surface = self.mainfont.render("LEVEL", True, COLORS["BLACK"])
+        level_label_rect = level_label_surface.get_rect()
+        level_label_rect.left = label_rect.left
+        level_label_rect.top = value_rect.bottom + 20  # 20px spacing under points value
+
+        # Fourth line: LEVEL value (currently 0)
+        level_value_surface = self.mainfont.render(str(self.controller.level), True, COLORS["BLACK"])
+        level_value_rect = level_value_surface.get_rect()
+        level_value_rect.left = level_label_rect.left
+        level_value_rect.top = level_label_rect.bottom + 5  # 5px spacing under LEVEL label
+
+        # Fifth line: LINES CLEARED label
+        lines_label_surface = self.mainfont.render("LINES", True, COLORS["BLACK"])
+        lines_label_rect = lines_label_surface.get_rect()
+        lines_label_rect.left = level_label_rect.left
+        lines_label_rect.top = level_value_rect.bottom + 20  # 20px spacing under level value
+
+        # Sixth line: LINES CLEARED value (currently 0)
+        lines_value_surface = self.mainfont.render(str(self.controller.total_rows_cleared), True, COLORS["BLACK"])
+        lines_value_rect = lines_value_surface.get_rect()
+        lines_value_rect.left = lines_label_rect.left
+        lines_value_rect.top = lines_label_rect.bottom + 5  # 5px spacing under LINES label
+
+        # Draw all
+        self.surface.blit(label_surface, label_rect)           # POINTS label
+        self.surface.blit(value_surface, value_rect)           # POINTS value
+        self.surface.blit(level_label_surface, level_label_rect)  # LEVEL label
+        self.surface.blit(level_value_surface, level_value_rect)  # LEVEL value
+        self.surface.blit(lines_label_surface, lines_label_rect)  # LINES label
+        self.surface.blit(lines_value_surface, lines_value_rect)  # LINES value
 
     def draw_shape(self, shape: Shape, top_left_x: int, top_left_y: int, cell_size: int) -> None:
         """
@@ -164,13 +243,11 @@ class GameUI:
         # Queue dimensions
         queue_width = 5 * self.cell_size
         queue_height = 10 * self.cell_size
-        padding_left = 80    
-        padding_bottom = 0  
 
         # Queue position
-        queue_x_left = self.x_offset + self.grid_width + padding_left                                  
-        queue_y_top = self.y_offset + self.grid_height - queue_height - padding_bottom   
-        queue_y_bottom = self.y_offset + self.grid_height - padding_bottom        
+        queue_x_left = self.grid_left_x + self.grid_width + self.queue_padding_left                                  
+        queue_y_top = self.grid_top_y + self.grid_height - queue_height - self.queue_padding_bottom    
+        queue_y_bottom = self.grid_top_y + self.grid_height - self.queue_padding_bottom         
 
         # Draw queue border 
         border_rect = pygame.Rect(queue_x_left, queue_y_top, queue_width, queue_height)
@@ -244,6 +321,11 @@ class GameUI:
                         self.controller.rotate()
                 elif event.type == TICK_EVENT:
                     running = self.controller.tick()
+                    self.update_tick_interval()
+
+                    if self.controller.level > self.previous_level:
+                        print(f"Level up! Now Level {self.controller.level}")
+                        self.previous_level = self.controller.level
 
             # ===============================
             # Handle held-down keys

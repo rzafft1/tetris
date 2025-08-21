@@ -70,14 +70,16 @@ class Controller:
     - active_shape (Shape): the number of rows in the grid
     """
 
-    def __init__(self) -> None:
+    def __init__(self, initial_level: int = 1) -> None:
         """
         Initializes the game board and spawns the first shape.
         """
         self.game_board: GameBoard = GameBoard()
         self.active_shape: Optional[Shape] = None
         self.points: int = 0
-        self.level: int = 1
+        self.level: int = initial_level
+        self.initial_level = initial_level
+        self.total_rows_cleared = 0
 
         self.shape_queue: deque[Shape] = deque()
         for _ in range(3):
@@ -86,6 +88,13 @@ class Controller:
         self.spawn_new_shape()
 
 
+    def update_level(self) -> None:
+        """
+        Decide when to move to the next levels
+        """
+        required_lines_cleared_per_level = 10
+        self.level = self.total_rows_cleared // required_lines_cleared_per_level + self.initial_level # 10 lines per level
+        
     def generate_new_shape(self) -> Shape:
         """
         Returns a single random shape
@@ -172,6 +181,7 @@ class Controller:
         Args:
         - int: number of rows that were cleared
         """
+        self.total_rows_cleared += num_rows_cleared
         points_table = {1: 40, 2: 100, 3: 300, 4: 1200}
         self.points += points_table.get(num_rows_cleared, 0) * self.level
             
@@ -197,6 +207,7 @@ class Controller:
         if not moved:
             num_cleared = self.game_board.clear_rows()
             self.update_points(num_cleared)
+            self.update_level()
             spawned = self.spawn_new_shape()
             if not spawned:
                 return False
