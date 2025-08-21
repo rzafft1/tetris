@@ -75,24 +75,45 @@ class GameUI:
         self.queue_padding_bottom = 0
 
         # ===============================
-        # Display and Surface Setup
+        # Determine height and width of the user's screen
         # ===============================
         self.display_info = pygame.display.Info()
         screen_w = self.display_info.current_w
         screen_h = self.display_info.current_h
 
-        # Height = as tall as possible (scaled)
-        self.window_height = int(screen_h * window_scale)
+        # ===============================
+        # Initialize the Game Window 'Surface'
+        # ===============================
 
-        # Width = exactly half of height
-        self.window_width = int(self.window_height * 0.7)
+        # the game window's height in proportion to the screen height
+        self.window_scale = window_scale 
+        self.window_height = int(screen_h * self.window_scale)
 
-        # Ensure it fits in screen width
+        # the grid's height in proportion to the game window's height
+        self.grid_scale: float = 1 
+
+        # the cell size based on the scrreen's dimensions
+        self.cell_size: int = min(
+            (int(screen_w * self.window_scale) * self.grid_scale) // self.controller.game_board.num_cols,
+            (int(screen_h * self.window_scale) * self.grid_scale) // self.controller.game_board.num_rows
+        )
+        self.cell_width: int = self.cell_size
+        self.cell_height: int = self.cell_size
+
+        # the game window's width in proprotion to the grid width
+        self.window_width = ((self.controller.game_board.num_cols + 5.6) * self.cell_width)
         if self.window_width > screen_w:
             self.window_width = screen_w
             self.window_height = self.window_width * 2
-
         self.surface = pygame.display.set_mode((self.window_width, self.window_height))
+
+        # ===============================
+        # Determine height and width of gameboard based on game window height
+        # ===============================
+        self.grid_width: int = self.controller.game_board.num_cols * self.cell_width
+        self.grid_height: int = self.controller.game_board.num_rows * self.cell_height
+        self.grid_left_x: int = self.grid_padding_left
+        self.grid_top_y: int = (self.window_height - self.grid_height) // 2  
 
         # ===============================
         # Grid and UI Colors
@@ -107,20 +128,6 @@ class GameUI:
         # ===============================
         self.mainfont = pygame.font.SysFont('Arial', 30)
 
-        # ===============================
-        # Grid Scaling and Positioning
-        # ===============================
-        self.grid_scale: float = 0.9
-        self.cell_size: int = min(
-            (self.window_width * self.grid_scale) // self.controller.game_board.num_cols,
-            (self.window_height * self.grid_scale) // self.controller.game_board.num_rows
-        )
-        self.cell_width: int = self.cell_size
-        self.cell_height: int = self.cell_size
-        self.grid_width: int = self.controller.game_board.num_cols * self.cell_width
-        self.grid_height: int = self.controller.game_board.num_rows * self.cell_height
-        self.grid_left_x: int = self.grid_padding_left
-        self.grid_top_y: int = (self.window_height - self.grid_height) // 2  
 
         self.previous_level = self.controller.level
 
@@ -236,8 +243,7 @@ class GameUI:
 
     def draw_shape_queue(self) -> None:
         """
-        Draws the next three shapes to the right of the Tetris board,
-        centered horizontally in the queue area, with a border.
+        Draw the queue
         """
         
         # Queue dimensions
@@ -271,6 +277,27 @@ class GameUI:
             else: shape_y_top = shapearea_y_middle - self.cell_size   
 
             self.draw_shape(shape, shapearea_x_left, shape_y_top, self.cell_size)
+
+        """
+        Draw the hold shape box
+        """
+        holdbox_padding_bottom = 10
+        holdbox_width = queue_width
+        holdbox_height = queue_height / 3
+        holdbox_x_left = queue_x_left
+        holdbox_y_top = queue_y_top - holdbox_height - holdbox_padding_bottom
+        holdbox_y_bottom = queue_y_top - holdbox_padding_bottom
+        border_rect = pygame.Rect(holdbox_x_left, holdbox_y_top, holdbox_width, holdbox_height)
+        pygame.draw.rect(self.surface, COLORS["BLACK"], border_rect, 2)
+
+        shape_num_nonzero_rows = sum(1 for row in self.controller.active_shape.matrix if any(val != 0 for val in row)) 
+        shapearea_x_left = holdbox_x_left + (holdbox_width - len(self.controller.active_shape.matrix) * self.cell_size) // 2 
+        shapearea_y_top = holdbox_y_bottom 
+        shapearea_y_bottom = holdbox_y_bottom -space_per_piece
+        shapearea_y_middle = shapearea_y_bottom - ((shapearea_y_bottom - shapearea_y_top)/2)
+        if shape_num_nonzero_rows == 1: shape_y_top = shapearea_y_middle - self.cell_size/2  
+        else: shape_y_top = shapearea_y_middle - self.cell_size   
+        self.draw_shape(self.controller.active_shape, shapearea_x_left, shape_y_top, self.cell_size)
 
     # ===============================
     # Event Handling Methods
