@@ -249,13 +249,9 @@ class GameUI:
         # Queue dimensions
         queue_width = 5 * self.cell_size
         queue_height = 10 * self.cell_size
-
-        # Queue position
         queue_x_left = self.grid_left_x + self.grid_width + self.queue_padding_left                                  
         queue_y_top = self.grid_top_y + self.grid_height - queue_height - self.queue_padding_bottom    
         queue_y_bottom = self.grid_top_y + self.grid_height - self.queue_padding_bottom         
-
-        # Draw queue border 
         border_rect = pygame.Rect(queue_x_left, queue_y_top, queue_width, queue_height)
         pygame.draw.rect(self.surface, COLORS["BLACK"], border_rect, 2)
 
@@ -290,14 +286,16 @@ class GameUI:
         border_rect = pygame.Rect(holdbox_x_left, holdbox_y_top, holdbox_width, holdbox_height)
         pygame.draw.rect(self.surface, COLORS["BLACK"], border_rect, 2)
 
-        shape_num_nonzero_rows = sum(1 for row in self.controller.active_shape.matrix if any(val != 0 for val in row)) 
-        shapearea_x_left = holdbox_x_left + (holdbox_width - len(self.controller.active_shape.matrix) * self.cell_size) // 2 
-        shapearea_y_top = holdbox_y_bottom 
-        shapearea_y_bottom = holdbox_y_bottom -space_per_piece
-        shapearea_y_middle = shapearea_y_bottom - ((shapearea_y_bottom - shapearea_y_top)/2)
-        if shape_num_nonzero_rows == 1: shape_y_top = shapearea_y_middle - self.cell_size/2  
-        else: shape_y_top = shapearea_y_middle - self.cell_size   
-        self.draw_shape(self.controller.active_shape, shapearea_x_left, shape_y_top, self.cell_size)
+        if self.controller.hold_shape is not None:
+            shape_num_rows = len(self.controller.hold_shape.matrix)
+            shape_num_nonzero_rows = sum(1 for row in self.controller.hold_shape.matrix if any(val != 0 for val in row)) 
+            shapearea_x_left = holdbox_x_left + (holdbox_width - shape_num_rows * self.cell_size) // 2 
+            shapearea_y_top = holdbox_y_bottom 
+            shapearea_y_bottom = holdbox_y_bottom -space_per_piece
+            shapearea_y_middle = shapearea_y_bottom - ((shapearea_y_bottom - shapearea_y_top)/2)
+            if shape_num_nonzero_rows == 1: shape_y_top = shapearea_y_middle - self.cell_size/2  
+            else: shape_y_top = shapearea_y_middle - self.cell_size   
+            self.draw_shape(self.controller.hold_shape, shapearea_x_left, shape_y_top, self.cell_size)
 
     # ===============================
     # Event Handling Methods
@@ -330,8 +328,15 @@ class GameUI:
 
         running = True
         clock = pygame.time.Clock()
-        move_delay = 50  # milliseconds between moves when holding a key
+        side_move_delay = 70  # milliseconds between left/right moves
+        down_move_delay = 25   # milliseconds between down moves
         last_move_time: Dict[int, int] = {pygame.K_LEFT: 0, pygame.K_RIGHT: 0, pygame.K_DOWN: 0}
+
+        last_move_time: Dict[int, int] = {
+            pygame.K_LEFT: 0,
+            pygame.K_RIGHT: 0,
+            pygame.K_DOWN: 0
+        }
 
         while running:
             self.surface.fill(self.background_color)
@@ -346,6 +351,8 @@ class GameUI:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
                         self.controller.rotate()
+                    if event.key == pygame.K_SPACE:
+                        self.controller.hold_active_shape()
                 elif event.type == TICK_EVENT:
                     running = self.controller.tick()
                     self.update_tick_interval()
@@ -361,7 +368,8 @@ class GameUI:
             for key, direction in [(pygame.K_LEFT, "left"), 
                                 (pygame.K_RIGHT, "right"), 
                                 (pygame.K_DOWN, "down")]:
-                if keys[key] and current_time - last_move_time[key] > move_delay:
+                delay = down_move_delay if direction == "down" else side_move_delay
+                if keys[key] and current_time - last_move_time[key] > delay:
                     self.controller.move(direction)
                     last_move_time[key] = current_time
 

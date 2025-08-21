@@ -76,6 +76,8 @@ class Controller:
         """
         self.game_board: GameBoard = GameBoard()
         self.active_shape: Optional[Shape] = None
+        self.hold_shape: Optional[Shape] = None
+        self.hold_used_this_turn: bool = False
         self.points: int = 0
         self.level: int = initial_level
         self.initial_level = initial_level
@@ -110,13 +112,38 @@ class Controller:
         Returns:
         - bool: True if the shape can be placed, False if game over (collision on spawn).
         """
+        
         self.active_shape = copy.deepcopy(self.shape_queue.popleft())
         self.shape_queue.append(self.generate_new_shape())
+        self.hold_used_this_turn = False
         if self.game_board.can_place(self.active_shape):
             self.game_board.place_shape(self.active_shape)
             return True
         else:
             return False
+        
+    def hold_active_shape(self) -> None:
+        """
+        Set the active shape to the hold shape,
+        Set the hold shape to the active shape
+        """
+        if self.hold_used_this_turn:
+            return
+        self.game_board.remove_shape(self.active_shape)
+        if self.hold_shape is None:
+            self.hold_shape = copy.deepcopy(self.active_shape)
+            self.spawn_new_shape()
+        else:
+            temp = copy.deepcopy(self.hold_shape)
+            self.hold_shape = copy.deepcopy(self.active_shape)
+            self.active_shape = temp
+            self.active_shape.col_position = (self.game_board.num_cols - len(self.active_shape.matrix[0])) // 2
+        if not self.game_board.can_place(self.active_shape):
+            # Optional: handle immediate game over if swap collides
+            pass
+        else:
+            self.game_board.place_shape(self.active_shape)
+        self.hold_used_this_turn = True
             
     def rotate(self) -> bool:
         """
