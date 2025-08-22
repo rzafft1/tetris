@@ -144,35 +144,6 @@ class GameUI:
         TICK_EVENT = pygame.USEREVENT + 1
         pygame.time.set_timer(TICK_EVENT, self.tick_interval)
 
-    # ===============================
-    # Rendering Methods
-    # ===============================
-    def draw_grid(self) -> None:
-        """
-        Draws the Tetris board grid and the shapes currently placed.
-        """
-
-        pygame.draw.circle(self.surface, COLORS["RED"], (self.grid_left_x, self.grid_top_y), 10)
-
-        for row in range(self.controller.game_board.num_rows):
-            for col in range(self.controller.game_board.num_cols):
-
-                x = col * self.cell_width + self.grid_left_x
-                y = row * self.cell_height + self.grid_top_y
-                square = pygame.Rect(x, y, self.cell_width, self.cell_height)
-                square = pygame.Rect(x, y, self.cell_width, self.cell_height)
-                cell_color = COLORS_MAPPING[self.controller.game_board.grid[row][col]] \
-                    if self.controller.game_board.grid[row][col] else self.grid_cell_color
-                pygame.draw.rect(self.surface, cell_color, square)
-                pygame.draw.rect(self.surface, self.grid_border_color, square, 1)
-
-        outer_rect = pygame.Rect(
-            self.grid_left_x - 1,  # move 1 pixel left
-            self.grid_top_y - 1,  # move 1 pixel up
-            self.controller.game_board.num_cols * self.cell_width + 2,  # extend width by 2 pixels
-            self.controller.game_board.num_rows * self.cell_height + 2   # extend height by 2 pixels
-        )
-        pygame.draw.rect(self.surface, self.grid_border_color, outer_rect, 2)
 
     def draw_score(self) -> None:
         """
@@ -241,61 +212,214 @@ class GameUI:
                     pygame.draw.rect(self.surface, COLORS_MAPPING[val], rect)
                     pygame.draw.rect(self.surface, COLORS["BLACK"], rect, 1)
 
-    def draw_shape_queue(self) -> None:
-        """
-        Draw the queue
-        """
-        
-        # Queue dimensions
-        queue_width = 5 * self.cell_size
-        queue_height = 10 * self.cell_size
-        queue_x_left = self.grid_left_x + self.grid_width + self.queue_padding_left                                  
-        queue_y_top = self.grid_top_y + self.grid_height - queue_height - self.queue_padding_bottom    
-        queue_y_bottom = self.grid_top_y + self.grid_height - self.queue_padding_bottom         
-        border_rect = pygame.Rect(queue_x_left, queue_y_top, queue_width, queue_height)
-        pygame.draw.rect(self.surface, COLORS["BLACK"], border_rect, 2)
+    # ===============================
+    # Render UI
+    # ===============================
+    def draw_ui(self) -> None:
 
-        # calculate the available space for each piece inside the queue
-        space_per_piece = (queue_y_bottom - queue_y_top) / len(self.controller.shape_queue)
+        # ===============================
+        # Draw the grid
+        # ===============================
+
+        # Fill in all the cells of the grid
+        pygame.draw.circle(self.surface, COLORS["RED"], (self.grid_left_x, self.grid_top_y), 10)
+        for row in range(self.controller.game_board.num_rows):
+            for col in range(self.controller.game_board.num_cols):
+                x = col * self.cell_width + self.grid_left_x
+                y = row * self.cell_height + self.grid_top_y
+                square = pygame.Rect(x, y, self.cell_width, self.cell_height)
+                square = pygame.Rect(x, y, self.cell_width, self.cell_height)
+                cell_color = COLORS_MAPPING[self.controller.game_board.grid[row][col]] \
+                    if self.controller.game_board.grid[row][col] else self.grid_cell_color
+                pygame.draw.rect(self.surface, cell_color, square)
+                pygame.draw.rect(self.surface, self.grid_border_color, square, 1)
+        
+        # Draw the border for the grid
+        grid_border = pygame.Rect(self.grid_left_x-1,self.grid_top_y-1,self.grid_width+2,self.grid_height+2)
+        pygame.draw.rect(self.surface, self.grid_border_color, grid_border, 2)
+
+        # ===============================
+        # Draw the shape queue, hold box, and game score and level
+        # ===============================
+
+        boxes_padding_left = 10
+
+        # Height of each box
+        queuebox_height = self.grid_height * 0.48
+        holdbox_height = self.grid_height * 0.25
+        gamebox_height = self.grid_height * 0.25
+
+        # Compute the remaining space (for gaps only)
+        total_box_height = queuebox_height + holdbox_height + gamebox_height
+        available_space = self.grid_height - total_box_height
+        gap = available_space / 2  # Two gaps: between Queue-Hold and Hold-Game
+
+        # X position for all boxes
+        box_x_start = self.grid_left_x + self.grid_width + boxes_padding_left
+        box_width = 5 * self.cell_size
+
+        # Positions
+        queuebox_y_top = self.grid_top_y
+        queuebox_y_bottom = queuebox_y_top + queuebox_height
+        holdbox_y_top = queuebox_y_bottom + gap
+        holdbox_y_bottom = holdbox_y_top + holdbox_height
+        gamebox_y_top = holdbox_y_bottom + gap
+        gamebox_y_bottom = gamebox_y_top + gamebox_height
+
+        # DRAW THE QUEUE BOX
+        queuebox_border = pygame.Rect(box_x_start, queuebox_y_top, box_width, queuebox_height)
+        pygame.draw.rect(self.surface, self.grid_border_color, queuebox_border, 2)
 
         # draw each shape inside the queue
+        space_per_piece = (queuebox_y_bottom - queuebox_y_top) / len(self.controller.shape_queue)
         for i, shape in enumerate(reversed(self.controller.shape_queue)):
-
             shape_num_rows = len(shape.matrix)   
             shape_num_nonzero_rows = sum(1 for row in shape.matrix if any(val != 0 for val in row))  
-
-            shapearea_x_left = queue_x_left + (queue_width - shape_num_rows * self.cell_size) // 2 
-            shapearea_y_top = queue_y_bottom-(space_per_piece*(i+1)) 
-            shapearea_y_bottom = queue_y_bottom-(space_per_piece*(i))  
+            shapearea_x_left = box_x_start + (box_width - shape_num_rows * self.cell_size) // 2 
+            shapearea_y_top = queuebox_y_bottom-(space_per_piece*(i+1)) 
+            shapearea_y_bottom = queuebox_y_bottom-(space_per_piece*(i))  
             shapearea_y_middle = shapearea_y_bottom - ((shapearea_y_bottom - shapearea_y_top)/2)
-
             if shape_num_nonzero_rows == 1: shape_y_top = shapearea_y_middle - self.cell_size/2  
             else: shape_y_top = shapearea_y_middle - self.cell_size   
-
             self.draw_shape(shape, shapearea_x_left, shape_y_top, self.cell_size)
 
-        """
-        Draw the hold shape box
-        """
-        holdbox_padding_bottom = 10
-        holdbox_width = queue_width
-        holdbox_height = queue_height / 3
-        holdbox_x_left = queue_x_left
-        holdbox_y_top = queue_y_top - holdbox_height - holdbox_padding_bottom
-        holdbox_y_bottom = queue_y_top - holdbox_padding_bottom
-        border_rect = pygame.Rect(holdbox_x_left, holdbox_y_top, holdbox_width, holdbox_height)
-        pygame.draw.rect(self.surface, COLORS["BLACK"], border_rect, 2)
+        # DRAW THE HOLD BOX
+        holdbox_border = pygame.Rect(box_x_start, holdbox_y_top, box_width, holdbox_height)
+        pygame.draw.rect(self.surface, self.grid_border_color, holdbox_border, 2)
 
+        # draw the held shape inside the box
         if self.controller.hold_shape is not None:
-            shape_num_rows = len(self.controller.hold_shape.matrix)
-            shape_num_nonzero_rows = sum(1 for row in self.controller.hold_shape.matrix if any(val != 0 for val in row)) 
-            shapearea_x_left = holdbox_x_left + (holdbox_width - shape_num_rows * self.cell_size) // 2 
-            shapearea_y_top = holdbox_y_bottom 
-            shapearea_y_bottom = holdbox_y_bottom -space_per_piece
-            shapearea_y_middle = shapearea_y_bottom - ((shapearea_y_bottom - shapearea_y_top)/2)
-            if shape_num_nonzero_rows == 1: shape_y_top = shapearea_y_middle - self.cell_size/2  
-            else: shape_y_top = shapearea_y_middle - self.cell_size   
-            self.draw_shape(self.controller.hold_shape, shapearea_x_left, shape_y_top, self.cell_size)
+            shape_matrix = self.controller.hold_shape.matrix
+            shape_rows = len(shape_matrix)
+            shape_cols = len(shape_matrix[0])
+
+            # Shape size in pixels
+            shape_width_px = shape_cols * self.cell_size
+            shape_height_px = shape_rows * self.cell_size
+
+            # Center of the hold box
+            box_center_x = box_x_start + box_width // 2
+            box_center_y = holdbox_y_top + holdbox_height // 2
+
+            # Top-left position for the shape to be centered
+            shape_x_left = box_center_x - shape_width_px // 2
+            shape_y_top = box_center_y - shape_height_px // 2
+
+            # Optional: draw a vertical line and a point at the vertical center
+            pygame.draw.line(self.surface, (255, 0, 0),
+                            (box_center_x, holdbox_y_top),
+                            (box_center_x, holdbox_y_top + holdbox_height), 2)
+            pygame.draw.circle(self.surface, (255, 0, 0), (box_center_x, box_center_y), 5)
+
+            # Draw the shape
+            self.draw_shape(self.controller.hold_shape, shape_x_left, shape_y_top, self.cell_size)
+
+        # DRAW THE GAME INFORMATION BOX
+        gamebox_border = pygame.Rect(box_x_start, gamebox_y_top, box_width, gamebox_height)
+        pygame.draw.rect(self.surface, self.grid_border_color, gamebox_border, 2)
+
+        # ------ Text content ------
+        items = [
+            ("POINTS", str(self.controller.points)),
+            ("LEVEL",  str(self.controller.level)),
+            ("LINES",  str(self.controller.total_rows_cleared)),
+        ]
+
+        # ------ Layout/padding ------
+        pad_left = 10
+        pad_top = 10
+        pad_right = 10
+        pad_bottom = 10
+
+        label_value_gap = 5   # gap between label and its value
+        group_gap = 20       # gap between value and next label
+
+        # Render all at base size first
+        rendered = []  # list of (label_surface, value_surface)
+        max_w = 0
+        total_h_text = 0
+
+        for label, value in items:
+            lbl = self.mainfont.render(label, True, COLORS["BLACK"])
+            val = self.mainfont.render(value, True, COLORS["BLACK"])
+            rendered.append((lbl, val))
+
+        # Compute total text height with base gaps
+        # h = (lbl1 + lv_gap + val1) + group_gap + (lbl2 + lv_gap + val2) + group_gap + (lbl3 + lv_gap + val3)
+        heights = [(lbl.get_height(), val.get_height()) for (lbl, val) in rendered]
+        total_h_text = (
+            heights[0][0] + label_value_gap + heights[0][1] +
+            group_gap +
+            heights[1][0] + label_value_gap + heights[1][1] +
+            group_gap +
+            heights[2][0] + label_value_gap + heights[2][1]
+        )
+
+        # Compute widest element
+        max_w = max(
+            max(lbl.get_width(), val.get_width())
+            for (lbl, val) in rendered
+        )
+
+        # Available space inside the box
+        avail_h = max(1, gamebox_height - pad_top - pad_bottom)
+        avail_w = max(1, box_width - pad_left - pad_right)
+
+        # Scale factor to fit height and width
+        scale_h = min(1.0, avail_h / total_h_text)
+        scale_w = min(1.0, avail_w / max_w)
+        scale = min(scale_h, scale_w)
+
+        # Scale surfaces (and gaps) if needed
+        if scale < 1.0:
+            scaled = []
+            for (lbl, val) in rendered:
+                # New sizes
+                nl_w, nl_h = max(1, int(lbl.get_width() * scale)), max(1, int(lbl.get_height() * scale))
+                nv_w, nv_h = max(1, int(val.get_width() * scale)), max(1, int(val.get_height() * scale))
+                # Rescale
+                lbl_s = pygame.transform.smoothscale(lbl, (nl_w, nl_h))
+                val_s = pygame.transform.smoothscale(val, (nv_w, nv_h))
+                scaled.append((lbl_s, val_s))
+            rendered = scaled
+            # Scale gaps too
+            label_value_gap = max(1, int(round(label_value_gap * scale)))
+            group_gap = max(1, int(round(group_gap * scale)))
+
+        # (Re)compute total height after scaling
+        heights = [(lbl.get_height(), val.get_height()) for (lbl, val) in rendered]
+        total_h_text = (
+            heights[0][0] + label_value_gap + heights[0][1] +
+            group_gap +
+            heights[1][0] + label_value_gap + heights[1][1] +
+            group_gap +
+            heights[2][0] + label_value_gap + heights[2][1]
+        )
+
+        # Clamp starting y so the block stays inside (safeguard against rounding)
+        start_y = gamebox_y_top + pad_top
+        if start_y + total_h_text > gamebox_y_top + gamebox_height - pad_bottom:
+            start_y = (gamebox_y_top + gamebox_height - pad_bottom) - total_h_text
+
+        x_left = box_x_start + pad_left
+        y = start_y
+
+        # Blit: label/value for each group
+        for i, (lbl_surf, val_surf) in enumerate(rendered):
+            # label
+            lbl_rect = lbl_surf.get_rect()
+            lbl_rect.topleft = (x_left, y)
+            self.surface.blit(lbl_surf, lbl_rect)
+
+            # value under label
+            y = lbl_rect.bottom + label_value_gap
+            val_rect = val_surf.get_rect()
+            val_rect.topleft = (x_left, y)
+            self.surface.blit(val_surf, val_rect)
+
+            # add group gap except after last group
+            if i < len(rendered) - 1:
+                y = val_rect.bottom + group_gap
 
     # ===============================
     # Event Handling Methods
@@ -376,8 +500,8 @@ class GameUI:
             # ===============================
             # Render
             # ===============================
-            self.draw_grid()
-            self.draw_score()
-            self.draw_shape_queue()
+            self.draw_ui()
+            # self.draw_score()
+            # self.draw_shape_queue()
             pygame.display.update()
             clock.tick(60)
