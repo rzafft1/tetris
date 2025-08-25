@@ -3,6 +3,7 @@ import copy
 from typing import Dict, List, Literal, Optional
 from src.gameboard import GameBoard
 from src.shape import Shape
+from src.soundmanager import SoundManager
 from collections import deque
 
 # Type Aliases
@@ -75,6 +76,7 @@ class Controller:
         Initializes the game board and spawns the first shape.
         """
         self.game_board: GameBoard = GameBoard()
+        self.sound_manager: SoundManager = SoundManager()
         self.active_shape: Optional[Shape] = None
         self.hold_shape: Optional[Shape] = None
         self.hold_used_this_turn: bool = False
@@ -95,8 +97,11 @@ class Controller:
         Decide when to move to the next levels
         """
         required_lines_cleared_per_level = 10
-        self.level = self.total_rows_cleared // required_lines_cleared_per_level + self.initial_level # 10 lines per level
-        
+        new_level = self.total_rows_cleared // required_lines_cleared_per_level + self.initial_level # 10 lines per level
+        if new_level > self.level:  
+            self.sound_manager.play("level_up")
+        self.level = new_level
+
     def generate_new_shape(self) -> Shape:
         """
         Returns a single random shape
@@ -161,6 +166,7 @@ class Controller:
 
         if self.game_board.can_place(self.active_shape):
             self.game_board.place_shape(self.active_shape)
+            self.sound_manager.play("click")
             return True
         
         self.active_shape.matrix = original_matrix
@@ -232,7 +238,10 @@ class Controller:
         # 2. Spawn a new shape
         # 3. Check to see if the game is over 
         if not moved:
+            self.sound_manager.play("make_move")
             num_cleared = self.game_board.clear_rows()
+            if num_cleared > 0:
+                self.sound_manager.play("row_clear")
             self.update_points(num_cleared)
             self.update_level()
             spawned = self.spawn_new_shape()

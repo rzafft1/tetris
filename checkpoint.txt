@@ -83,7 +83,7 @@ class GameUI:
         self.starting_level = difficulty
         self.controller: Controller = Controller(initial_level=self.starting_level)
         self.previous_level = self.controller.level
-        self.initial_level_speed = 250
+        self.initial_level_speed = 500
         self.tick_interval = self.initial_level_speed
         self.update_tick_interval()
 
@@ -134,17 +134,14 @@ class GameUI:
         # Grid container
         self.width_grid_container = self.size_block * self.controller.game_board.num_cols
         self.height_grid_container = self.size_block * self.controller.game_board.num_rows
-        self.padding_grid_border = int(screen_w * 0.01)
-        self.width_grid_border = self.width_grid_container + (self.padding_grid_border * 2) 
-        self.height_grid_border = self.height_grid_container + (self.padding_grid_border * 2) 
 
         # Sidebar container
         self.width_sidebar_container = self.size_block * 6
-        self.height_sidebar_container = self.height_grid_border
+        self.height_sidebar_container = self.height_grid_container
 
         # Window width
         self.width_window = (
-            self.width_grid_border + self.width_sidebar_container +
+            self.width_grid_container + self.width_sidebar_container +
             self.padding_grid["left"] + self.padding_sidebar["right"] +
             self.padding_grid["right"]
         )
@@ -165,23 +162,16 @@ class GameUI:
         # ===============================
         # 1. Create grid container
         # ===============================
-        gridborder_x = self.padding_grid["left"]
-        gridborder_y = (self.height_window - self.height_grid_border) // 2
-        gridborder_rect = pygame.Rect(gridborder_x, gridborder_y, self.width_grid_border, self.height_grid_border)
-        pygame.draw.rect(self.surface, GameUI.GRID_BORDER_COLOR, gridborder_rect, 3)
-
-        gridcontainer_x = gridborder_x + self.padding_grid_border
-        gridcontainer_y = gridborder_y + self.padding_grid_border
-        gridcontainer_rect = pygame.Rect(gridcontainer_x, gridcontainer_y, self.width_grid_container, self.height_grid_container)
-        pygame.draw.rect(self.surface, GameUI.GRID_LINE_COLOR, gridcontainer_rect, 1)
+        grid_x = self.padding_grid["left"]
+        grid_y = (self.height_window - self.height_grid_container) // 2
+        grid_rect = pygame.Rect(grid_x, grid_y, self.width_grid_container, self.height_grid_container)
 
         # ===============================
         # 2. Create sidebar container
         # ===============================
-        sidebar_x = gridborder_rect.right + self.padding_grid["right"]
-        sidebar_y = gridborder_y
-        sidebar_rect = pygame.Rect(sidebar_x, sidebar_y, self.width_sidebar_container, self.height_sidebar_container)
-        # pygame.draw.rect(self.surface, GameUI.GRID_BORDER_COLOR, sidebar_rect, 3) # NOTE: SCAFFOLDING
+        sidebar_x = grid_x + grid_rect.width + self.padding_grid["right"]
+        sidebar_rect = pygame.Rect(sidebar_x, grid_y, self.width_sidebar_container, self.height_sidebar_container)
+        pygame.draw.rect(self.surface, GameUI.GRID_BORDER_COLOR, sidebar_rect, 3) # NOTE: SCAFFOLDING
 
         # ===============================
         # 3. Draw sidebar boxes (3 boxes: 25%, 25%, 50%) with spacing of 1% of screen height
@@ -190,26 +180,27 @@ class GameUI:
         sidebar_containers = [
             pygame.Rect(
                 sidebar_x,
-                sidebar_y,
+                grid_y,
                 self.width_sidebar_container,
                 sidebar_total_height * 0.25
             ),
             pygame.Rect(
                 sidebar_x,
-                sidebar_y + sidebar_total_height * 0.25 + self.sidebar_box_spacing,
+                grid_y + sidebar_total_height * 0.25 + self.sidebar_box_spacing,
                 self.width_sidebar_container,
                 sidebar_total_height * 0.25
             ),
             pygame.Rect(
                 sidebar_x,
-                sidebar_y + sidebar_total_height * 0.5 + 2 * self.sidebar_box_spacing,
+                grid_y + sidebar_total_height * 0.5 + 2 * self.sidebar_box_spacing,
                 self.width_sidebar_container,
                 sidebar_total_height * 0.5
             )
         ]
         for rect in sidebar_containers:
-            pygame.draw.rect(self.surface, GameUI.GRID_BORDER_COLOR, rect, 3)
+            pygame.draw.rect(self.surface, GameUI.GRID_BORDER_COLOR, rect, 2) # NOTE: SCAFFOLDING
 
+         
         # ===============================
         # 4. Draw the game board grid in the grid container
         # ===============================
@@ -217,8 +208,8 @@ class GameUI:
         # Draw all cell colors
         for row in range(self.controller.game_board.num_rows):
             for col in range(self.controller.game_board.num_cols):
-                x = gridcontainer_x + col * self.size_block
-                y = gridcontainer_y + row * self.size_block
+                x = grid_x + col * self.size_block
+                y = grid_y + row * self.size_block
                 square = pygame.Rect(x, y, self.size_block, self.size_block)
                 cell_value = self.controller.game_board.grid[row][col]
                 cell_color = COLORS_MAPPING.get(cell_value, GameUI.GRID_CELL_COLOR)
@@ -226,12 +217,16 @@ class GameUI:
 
         # Draw grid lines
         for r in range(self.controller.game_board.num_rows + 1):
-            y = gridcontainer_y + r * self.size_block
-            pygame.draw.line(self.surface, GameUI.GRID_LINE_COLOR, (gridcontainer_x, y), (gridcontainer_x + gridcontainer_rect.width, y), 5)
-        for c in range(1, self.controller.game_board.num_cols):
-            x = gridcontainer_x + c * self.size_block
-            pygame.draw.line(self.surface, GameUI.GRID_LINE_COLOR, (x, gridcontainer_y), (x, gridcontainer_y + gridcontainer_rect.height), 5)
+            y = grid_y + r * self.size_block
+            pygame.draw.line(self.surface, GameUI.GRID_LINE_COLOR, (grid_x, y), (grid_x + grid_rect.width, y), 5)
+        for c in range(self.controller.game_board.num_cols + 1):
+            x = grid_x + c * self.size_block
+            pygame.draw.line(self.surface, GameUI.GRID_LINE_COLOR, (x, grid_y), (x, grid_y + grid_rect.height), 5)
 
+        # Draw grid border
+        pygame.draw.rect(self.surface, GameUI.GRID_BORDER_COLOR, grid_rect, 1)
+
+        return
         # ===============================
         # 5. Draw the game information in the 1st side bar container
         # ===============================
@@ -240,12 +235,12 @@ class GameUI:
 
         # 5.1. Define the text content and styles
         gameinfo_texts = {
-            1: {"value": "Score", "font": GameUI.HEADER_FONT, "color": GameUI.HEADER_TEXT_COLOR, "bold": True},
-            2: {"value": str(self.controller.points), "font": GameUI.SUBHEADER_FONT, "color": GameUI.SUBHEADER_TEXT_COLOR, "bold": False},
-            3: {"value": "Level", "font": GameUI.HEADER_FONT, "color": GameUI.HEADER_TEXT_COLOR, "bold": True},
-            4: {"value": str(self.controller.level), "font": GameUI.SUBHEADER_FONT, "color": GameUI.SUBHEADER_TEXT_COLOR, "bold": False},
-            5: {"value": "Rows Cleared", "font": GameUI.HEADER_FONT, "color": GameUI.HEADER_TEXT_COLOR, "bold": True},
-            6: {"value": str(self.controller.total_rows_cleared), "font": GameUI.SUBHEADER_FONT, "color": GameUI.SUBHEADER_TEXT_COLOR, "bold": False},
+            1: {"value": "Title A", "font": GameUI.HEADER_FONT, "color": GameUI.HEADER_TEXT_COLOR, "bold": True},
+            2: {"value": "0000000", "font": GameUI.SUBHEADER_FONT, "color": GameUI.SUBHEADER_TEXT_COLOR, "bold": False},
+            3: {"value": "Title B", "font": GameUI.HEADER_FONT, "color": GameUI.HEADER_TEXT_COLOR, "bold": True},
+            4: {"value": "1111111", "font": GameUI.SUBHEADER_FONT, "color": GameUI.SUBHEADER_TEXT_COLOR, "bold": False},
+            5: {"value": "Title C", "font": GameUI.HEADER_FONT, "color": GameUI.HEADER_TEXT_COLOR, "bold": True},
+            6: {"value": "2222222", "font": GameUI.SUBHEADER_FONT, "color": GameUI.SUBHEADER_TEXT_COLOR, "bold": False},
         }
 
         # 5.2. Split sidebar into 3 equal panels
@@ -265,7 +260,7 @@ class GameUI:
         # 5.3. Each panel: split into header/value boxes (60% / 40%)
         text_index = 1  # keys in gameinfo_texts start from 1
         for panel in info_panels:
-            # pygame.draw.rect(self.surface, COLORS["WHITE"], panel, 2) # NOTE: SCAFFOLDING
+            pygame.draw.rect(self.surface, COLORS["WHITE"], panel, 2)
             header_height = int(panel.height * 0.6)
             value_height = panel.height - header_height
             text_boxes = [
@@ -275,7 +270,7 @@ class GameUI:
 
             # 5.4. Draw text in each box
             for rect in text_boxes:
-                # pygame.draw.rect(self.surface, COLORS["MAGENTA"], rect, 2) # NOTE: SCAFFOLDING
+                pygame.draw.rect(self.surface, COLORS["MAGENTA"], rect, 2)  
                 text_info = gameinfo_texts[text_index]
 
                 # 5.5. Render text to maximize its size inside a given rectangle.
@@ -285,7 +280,7 @@ class GameUI:
                 padding_y = int(rect.height * GAMEINFO_PADDING_RATIO)
                 max_width = rect.width - 2 * padding_x
                 max_height = rect.height - 2 * padding_y
-                font_size = int(min(max_width, max_height) * 0.65)
+                font_size = min(max_width, max_height)
                 font = pygame.font.SysFont(text_info['font'], font_size, bold=text_info.get('bold', False))
                 rendered_text = font.render(text_info['value'], True, text_info['color'])
                 while (rendered_text.get_width() > max_width or rendered_text.get_height() > max_height) and font_size > 5:
@@ -302,14 +297,16 @@ class GameUI:
         # 6. Draw hold shape in 2nd side bar container
         # ===============================
         sidebar_holdshape_container = sidebar_containers[1]
-        if self.controller.hold_shape is not None:
+        if self.controller.hold_shape is None:
+            matrix = copy.deepcopy(self.controller.active_shape.matrix)
+        else:
             matrix = copy.deepcopy(self.controller.hold_shape.matrix)
-            matrix = self.trim_matrix(matrix)  
-            matrix_width = self.size_block * len(matrix[0])
-            matrix_height = self.size_block * len(matrix)
-            offset_x = sidebar_holdshape_container.left + (sidebar_holdshape_container.width - matrix_width) // 2
-            offset_y = sidebar_holdshape_container.top + (sidebar_holdshape_container.height - matrix_height) // 2
-            self.draw_shape(matrix, offset_x, offset_y, self.size_block)
+        matrix = self.trim_matrix(matrix)  
+        matrix_width = self.size_block * len(matrix[0])
+        matrix_height = self.size_block * len(matrix)
+        offset_x = sidebar_holdshape_container.left + (sidebar_holdshape_container.width - matrix_width) // 2
+        offset_y = sidebar_holdshape_container.top + (sidebar_holdshape_container.height - matrix_height) // 2
+        self.draw_shape(matrix, offset_x, offset_y, self.size_block)
 
         # ===============================
         # 7. Draw the shape queue in the 3rd side bar container
@@ -352,7 +349,7 @@ class GameUI:
                 if val != 0:
                     rect = pygame.Rect(offset_x + c * cell_size, offset_y + r * cell_size, cell_size, cell_size)
                     pygame.draw.rect(self.surface, COLORS_MAPPING[val], rect)
-                    pygame.draw.rect(self.surface, GameUI.GRID_LINE_COLOR, rect, 3)
+                    pygame.draw.rect(self.surface, GameUI.CELL_BORDER_COLOR, rect, 3)
 
     def trim_matrix(self, matrix: Matrix) -> Matrix:
         """
