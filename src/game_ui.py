@@ -57,11 +57,11 @@ class GameUI:
     # ===============================
     # Scaling Constants
     # ===============================
-    SCALE_WINDOW = 0.99
+    SCALE_WINDOW = 0.8
     SCALE_GRID_CONTAINER = 0.97
     
     # ===============================
-    # Colors
+    # Colors and Fonts
     # ===============================
     BACKGROUND_COLOR: Color = COLORS["BLACK"]
     GRID_BORDER_COLOR: Color = COLORS["WHITE"]
@@ -83,7 +83,7 @@ class GameUI:
         self.starting_level = difficulty
         self.controller: Controller = Controller(initial_level=self.starting_level)
         self.previous_level = self.controller.level
-        self.initial_level_speed = 250
+        self.initial_level_speed = 225
         self.tick_interval = self.initial_level_speed
         self.update_tick_interval()
 
@@ -92,11 +92,8 @@ class GameUI:
         # ===============================
         self.display_info = pygame.display.Info()
         screen_w, screen_h = self.display_info.current_w, self.display_info.current_h
-        # Make window square
-        if screen_w < screen_h:
-            screen_h = screen_w
-        else:
-            screen_w = screen_h
+        side = min(screen_w, screen_h)
+        screen_w = screen_h = side
 
         # ===============================
         # Dynamic padding variables (proportional to screen size)
